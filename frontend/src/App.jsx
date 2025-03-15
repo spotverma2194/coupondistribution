@@ -3,6 +3,8 @@ import axios from "axios";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+ const API_BASE_URL=import.meta.env.VITE_API_URL;
+
 function App() {
   const [coupon, setCoupon] = useState(null);
   const [error, setError] = useState(null);
@@ -20,7 +22,7 @@ function App() {
     setLoading(true);
     try {
       const res = await axios.post(
-        "http://localhost:5000/claim",
+        `${API_BASE_URL}/claim`,
         {},
         { withCredentials: true }
       );
