@@ -12,7 +12,14 @@ app.use(cookieParser());
 app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
 // Coupons List
-let coupons = ["DISCOUNT10", "OFFER20", "SALE30", "PROMO50"];
+let coupons = [
+  "DISCOUNT10",
+  "OFFER20",
+  "SALE30",
+  "PROMO50",
+  "DISCOUNT40",
+  "DISCOUNT60",
+];
 let usedCoupons = {};
 
 // Round-robin index
@@ -39,22 +46,44 @@ app.post("/claim", (req, res) => {
   const userIP = req.ip;
   const userCookie = req.cookies.couponClaimed;
 
-  // Check if the user has already claimed a coupon
-  if (usedCoupons[userIP] || userCookie) {
-    return res
-      .status(400)
-      .json({ message: "You have already claimed a coupon. Try again later!" });
+  const now = Date.now();
+
+  // 30 minutes in milliseconds
+  const cooldownPeriod = 30 * 60 * 1000;
+
+  // IP Tracking: Restrict claims from the same IP within 30 minutes
+  if (usedCoupons[userIP]) {
+    const timeElapsed = now - usedCoupons[userIP];
+    const timeLeft = cooldownPeriod - timeElapsed;
+
+    if (timeElapsed < cooldownPeriod) {
+      return res.status(400).json({
+        message: `You have already claimed a coupon. Try again in ${Math.ceil(
+          timeLeft / 60000
+        )} minutes!`,
+      });
+    }
+  }
+
+  // 🔹 Cookie Tracking: Restrict claims from the same browser session
+  if (userCookie) {
+    return res.status(400).json({
+      message: "You have already claimed a coupon. Try again later!",
+    });
   }
 
   // Get a coupon using round-robin logic
   const coupon = coupons[couponIndex];
   couponIndex = (couponIndex + 1) % coupons.length;
 
-  // Mark this user as claimed
-  usedCoupons[userIP] = true;
-  res.cookie("couponClaimed", "true", { maxAge: 3600000, httpOnly: true }); // 1-hour restriction
+  // Mark this user as claimed with a timestamp
+  usedCoupons[userIP] = now;
+  res.cookie("couponClaimed", "true", {
+    maxAge: cooldownPeriod,
+    httpOnly: true,
+  });
 
-  saveUsedCoupons(); // Save updated data
+  saveUsedCoupons();
 
   res.json({ success: true, coupon });
 });
